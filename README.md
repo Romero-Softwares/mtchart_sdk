@@ -10,29 +10,11 @@ Esta primeira versao fica separada do aplicativo desktop e entrega um nucleo lim
 - registrar catalogo local de pecas e PN;
 - montar dados de rastreabilidade sem depender da interface Flet.
 
-## Instalacao local
+## Instalacao
 
 ```powershell
-cd sdk
-python -m pip install -e .
+python -m pip install mtchart-sdk
 ```
-
-## Repositorio e deploy
-
-O SDK esta preparado para ser publicado como repositorio separado em:
-
-```text
-https://github.com/Romero-Softwares/mtchart_sdk
-```
-
-Antes de enviar ou publicar, rode:
-
-```powershell
-python tools\validate_release.py
-python -m build
-```
-
-O passo a passo completo esta em `DEPLOY.md`.
 
 ## Exemplo rapido
 
@@ -73,8 +55,6 @@ print(reading.can_start_process)
 - `mtchart_sdk.service`: fachada principal para uso por outros sistemas.
 - `mtchart_sdk.cli`: demonstracao de linha de comando para validar instalacao.
 - `examples/basic_process.py`: exemplo minimo executavel.
-- `docs/COMMERCIAL_MODEL.md`: sugestao pratica de empacotamento e venda.
-- `docs/RELEASE_CHECKLIST.md`: checklist para entregar ou publicar o SDK.
 
 ## API principal
 
@@ -100,30 +80,17 @@ python -m mtchart_sdk.cli --catalog-db .tmp_demo.db --value 188.7
 O comando cria um processo ficticio, avalia a leitura e retorna um JSON com
 status, previsao de saida e resultados do catalogo local.
 
-## Validacao de release
+## Validacao local
 
-Antes de vender, entregar ou publicar uma versao:
+Para validar uma copia local do SDK durante desenvolvimento:
 
 ```powershell
-cd sdk
-python tools/validate_release.py
+python tools/validate_package.py
 ```
 
 O validador confere metadados, compila os modulos, roda testes e executa o
 exemplo/CLI de demonstracao.
 
-## Modelo comercial sugerido
-
-Use este SDK como nucleo reutilizavel e mantenha recursos avancados em camadas pagas:
-
-- conectores industriais especificos;
-- geracao profissional de PDF/Excel;
-- dashboard web/cloud;
-- suporte e implantacao;
-- templates de sistemas prontos para clientes.
-
-Veja tambem `docs/COMMERCIAL_MODEL.md`.
-
 ## Status
 
-Versao inicial de criacao. A API esta pronta para testes locais, demonstracao comercial e evolucao incremental.
+Versao inicial. A API esta pronta para instalacao, testes locais e evolucao incremental.

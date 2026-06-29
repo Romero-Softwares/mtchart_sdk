@@ -45,12 +45,12 @@ def main() -> int:
             "-m",
             "mtchart_sdk.cli",
             "--catalog-db",
-            ".tmp_release_validation.db",
+            ".tmp_package_validation.db",
             "--value",
             "188.7",
         ]
     )
-    print("Release local validado com sucesso.")
+    print("Pacote local validado com sucesso.")
     return 0
 
 
