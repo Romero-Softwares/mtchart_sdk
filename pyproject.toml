@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mtchart-sdk"
+version = "0.1.0"
+description = "SDK para criar sistemas de monitoramento termico, rastreabilidade e relatorios derivados do MTChart Pro."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "LicenseRef-Proprietary"
+license-files = ["LICENSE.md"]
+authors = [
+    { name = "MTD Softwares" }
+]
+keywords = [
+    "monitoramento",
+    "processo-termico",
+    "rastreabilidade",
+    "aviacao",
+    "industrial",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries",
+]
+
+[project.urls]
+Homepage = "https://github.com/Romero-Softwares/mtchart_sdk"
+Repository = "https://github.com/Romero-Softwares/mtchart_sdk"
+Documentation = "https://github.com/Romero-Softwares/mtchart_sdk#readme"
+Issues = "https://github.com/Romero-Softwares/mtchart_sdk/issues"
+
+[project.optional-dependencies]
+reports = ["openpyxl>=3.1"]
+dev = ["pytest>=8"]
+
+[project.scripts]
+mtchart-sdk-demo = "mtchart_sdk.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
