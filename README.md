@@ -7,7 +7,7 @@ Esta primeira versao fica separada do aplicativo desktop e entrega um nucleo lim
 - cadastrar processos termicos;
 - validar leituras de temperatura;
 - calcular previsao de saida;
-- registrar catalogo local de pecas e PN;
+- registrar catalogo de pecas e PN em backend escolhido pelo desenvolvedor;
 - montar dados de rastreabilidade sem depender da interface Flet.
 
 ## Instalacao
@@ -51,7 +51,7 @@ print(reading.can_start_process)
 
 - `mtchart_sdk.models`: modelos de dados do processo.
 - `mtchart_sdk.rules`: regras puras de temperatura e tempo.
-- `mtchart_sdk.storage`: catalogo SQLite local de pecas.
+- `mtchart_sdk.storage`: contrato de catalogo e backend SQLite padrao.
 - `mtchart_sdk.service`: fachada principal para uso por outros sistemas.
 - `mtchart_sdk.cli`: demonstracao de linha de comando para validar instalacao.
 - `examples/basic_process.py`: exemplo minimo executavel.
@@ -62,6 +62,40 @@ print(reading.can_start_process)
 - `MTChartService.evaluate_reading(process, value)`: classifica leitura como `OK`, `LOW`, `HIGH` ou `N/A`.
 - `MTChartService.search_parts(term)`: consulta o catalogo local de pecas por nome ou PN.
 - `clean_identifier(value)`: remove prefixos comuns como `PN:`, `P/N:`, `LOTE:` e `BATCH:`.
+
+## Banco de dados flexivel
+
+O SDK usa SQLite por padrao para facilitar o primeiro uso:
+
+```python
+from mtchart_sdk import MTChartService
+
+service = MTChartService(catalog_db="catalogo.db")
+```
+
+Para usar PostgreSQL, MySQL, SQL Server, MongoDB, uma API interna ou qualquer
+outro armazenamento, injete um backend proprio com os metodos `save()` e
+`search()`:
+
+```python
+from mtchart_sdk import MTChartService
+
+
+class MeuCatalogo:
+    def save(self, name: str, pn: str, increment: bool = True) -> None:
+        # Grave em qualquer banco, ORM ou servico externo.
+        ...
+
+    def search(self, term: str = "", limit: int = 100) -> list[dict[str, object]]:
+        # Retorne dicts com, no minimo, name e pn.
+        return []
+
+
+service = MTChartService(catalog=MeuCatalogo())
+```
+
+Esse contrato deixa as regras do MTChart independentes do banco. SQLite continua
+disponivel como backend padrao, mas nao e uma obrigacao para quem integra o SDK.
 
 ## CLI de demonstracao
 

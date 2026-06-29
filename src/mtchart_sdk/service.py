@@ -5,12 +5,18 @@ from pathlib import Path
 
 from mtchart_sdk.models import PartItem, ProcessInput, ProcessRecord, ReadingEvaluation
 from mtchart_sdk.rules import calculate_exit_timing, evaluate_temperature, normalize_item, total_quantity
-from mtchart_sdk.storage import PartsCatalog
+from mtchart_sdk.storage import PartsCatalogStorage, SQLitePartsCatalog
 
 
 class MTChartService:
-    def __init__(self, catalog_db: str | Path | None = None) -> None:
-        self.catalog = PartsCatalog(catalog_db or "mtchart_sdk.db")
+    def __init__(
+        self,
+        catalog_db: str | Path | None = None,
+        catalog: PartsCatalogStorage | None = None,
+    ) -> None:
+        if catalog is not None and catalog_db is not None:
+            raise ValueError("Use catalog or catalog_db, not both")
+        self.catalog = catalog or SQLitePartsCatalog(catalog_db or "mtchart_sdk.db")
 
     def create_process(self, data: ProcessInput) -> ProcessRecord:
         started_at = data.started_at or datetime.now()

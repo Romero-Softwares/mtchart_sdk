@@ -4,12 +4,20 @@ import sqlite3
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Iterator
+from typing import Iterator, Protocol
 
 from mtchart_sdk.rules import clean_identifier
 
 
-class PartsCatalog:
+class PartsCatalogStorage(Protocol):
+    def save(self, name: str, pn: str, increment: bool = True) -> None:
+        """Store or update a part/name relation."""
+
+    def search(self, term: str = "", limit: int = 100) -> list[dict[str, object]]:
+        """Return catalog matches ordered by the backend preference."""
+
+
+class SQLitePartsCatalog:
     def __init__(self, db_path: str | Path = "mtchart_sdk.db") -> None:
         self.db_path = Path(db_path)
         if self.db_path.parent != Path("."):
@@ -96,3 +104,6 @@ class PartsCatalog:
             }
             for row in rows
         ]
+
+
+PartsCatalog = SQLitePartsCatalog

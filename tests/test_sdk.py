@@ -4,6 +4,28 @@ from mtchart_sdk import MTChartService, PartItem, PenConfig, ProcessInput, clean
 from mtchart_sdk.cli import main, run_demo
 
 
+class MemoryCatalog:
+    def __init__(self):
+        self.rows = {}
+
+    def save(self, name: str, pn: str, increment: bool = True) -> None:
+        key = (name.upper(), pn.upper())
+        current = self.rows.get(key, {"id": len(self.rows) + 1, "name": name, "pn": pn, "use_count": 0})
+        current["name"] = name
+        current["pn"] = pn
+        current["use_count"] += 1 if increment else 0
+        self.rows[key] = current
+
+    def search(self, term: str = "", limit: int = 100) -> list[dict[str, object]]:
+        term = term.upper()
+        matches = [
+            row
+            for (name_norm, pn_norm), row in self.rows.items()
+            if not term or term in name_norm or term in pn_norm
+        ]
+        return matches[:limit]
+
+
 def test_create_process_and_evaluate_reading(tmp_path):
     service = MTChartService(catalog_db=tmp_path / "catalog.db")
     process = service.create_process(
@@ -26,6 +48,34 @@ def test_create_process_and_evaluate_reading(tmp_path):
     assert reading.status == "OK"
     assert reading.can_start_process is True
     assert service.search_parts("PN-1")[0]["name"] == "Peca"
+
+
+def test_service_accepts_custom_catalog_backend():
+    catalog = MemoryCatalog()
+    service = MTChartService(catalog=catalog)
+
+    service.create_process(
+        ProcessInput(
+            report_number="CH-CUSTOM",
+            project="OS-CUSTOM",
+            process_name="Teste",
+            oven="Forno",
+            relief_hours=1,
+            pen=PenConfig(id="1"),
+            items=[PartItem(name="Base", pn="PN-CUSTOM")],
+        )
+    )
+
+    assert service.search_parts("custom")[0]["pn"] == "PN-CUSTOM"
+
+
+def test_service_rejects_two_catalog_sources(tmp_path):
+    try:
+        MTChartService(catalog_db=tmp_path / "catalog.db", catalog=MemoryCatalog())
+    except ValueError as exc:
+        assert "catalog or catalog_db" in str(exc)
+    else:
+        raise AssertionError("Expected ValueError when catalog and catalog_db are both provided")
 
 
 def test_temperature_statuses_are_classified(tmp_path):
