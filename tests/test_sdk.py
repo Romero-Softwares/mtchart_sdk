@@ -1,6 +1,22 @@
 from datetime import datetime
 
-from mtchart_sdk import MTChartService, PartItem, PenConfig, ProcessInput, clean_identifier, normalize_item
+from mtchart_sdk import (
+    MTChartService,
+    PartItem,
+    PenConfig,
+    ProcessInput,
+    ReportIdentity,
+    build_output_paths,
+    clean_identifier,
+    format_datetime_display,
+    format_report_number,
+    normalize_item,
+    parts_control_filename,
+    report_summary,
+    serial_display_for_mass,
+    temperature_log_filename,
+    temperature_status,
+)
 from mtchart_sdk.cli import main, run_demo
 
 
@@ -169,3 +185,47 @@ def test_cli_run_demo_payload_can_be_consumed(tmp_path):
     assert result["report_number"] == "CH-CLI"
     assert result["reading"]["status"] == "OK"
     assert result["catalog_matches"][0]["pn"] == "PN-CLI"
+
+
+def test_report_helpers_match_current_traceability_rules(tmp_path):
+    identity = ReportIdentity(report_number="CH/010/26", pn="PN: ABC-1", sn="SN-1", oven="Forno 1")
+
+    assert format_report_number(identity.report_number) == "CH-010-26"
+    assert temperature_log_filename(identity) == "Log_CH-010-26_ABC-1_SN-1.xlsx"
+    assert parts_control_filename(report_number=identity.report_number, reference_date=datetime(2026, 7, 5)) == (
+        "Controle_Pecas_CH-010-26_2026-07-05.xlsx"
+    )
+    assert format_datetime_display(datetime(2026, 7, 5, 14, 30, 0), "EN") == "2026/07/05 14:30:00"
+    assert serial_display_for_mass("MULTIPLO", [{"sn": "SN-1"}]) == "MULTIPLO"
+    assert serial_display_for_mass("MULTIPLO", [{"sn": ""}]) == ""
+    assert temperature_status(188, 175.9, 220) == ("NORMAL / CONFORME", True)
+
+    paths = build_output_paths(tmp_path, datetime(2026, 7, 5), oven=identity.oven)
+    assert paths.period == tmp_path / "2026" / "JULHO"
+    assert paths.logs == tmp_path / "2026" / "JULHO" / "LOGS" / "FORNO 1"
+    assert paths.charts == tmp_path / "2026" / "JULHO" / "RELATORIOS PDF" / "FORNO 1" / "GRAFICOS HISTORICOS"
+
+
+def test_service_exposes_report_paths_and_summary(tmp_path):
+    service = MTChartService(catalog_db=tmp_path / "catalog.db")
+    process = service.create_process(
+        ProcessInput(
+            report_number="CH/011/26",
+            project="OS-11",
+            process_name="Teste",
+            oven="Forno 3",
+            relief_hours=1,
+            pen=PenConfig(id="3"),
+            items=[PartItem(name="Peca A", pn="PN-A", qty=2), PartItem(name="Peca B", pn="PN-B", qty=1)],
+            started_at=datetime(2026, 7, 5, 8, 0, 0),
+        )
+    )
+
+    path = service.parts_control_path(tmp_path, process)
+    summary = service.report_summary(process)
+
+    assert path.name == "Controle_Pecas_CH-011-26_2026-07-05.xlsx"
+    assert "FORNO 3" in str(path)
+    assert summary["report_number"] == "CH/011/26"
+    assert summary["total_quantity"] == 3
+    assert report_summary(process.items)["has_multiple_items"] is True

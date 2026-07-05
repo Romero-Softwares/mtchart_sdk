@@ -4,6 +4,8 @@ from datetime import datetime
 from pathlib import Path
 
 from mtchart_sdk.models import PartItem, ProcessInput, ProcessRecord, ReadingEvaluation
+from mtchart_sdk.output_paths import OutputPaths, build_output_paths
+from mtchart_sdk.reports import parts_control_path, report_summary
 from mtchart_sdk.rules import calculate_exit_timing, evaluate_temperature, normalize_item, total_quantity
 from mtchart_sdk.storage import PartsCatalogStorage, SQLitePartsCatalog
 
@@ -55,3 +57,41 @@ class MTChartService:
 
     def search_parts(self, term: str = "", limit: int = 100) -> list[dict[str, object]]:
         return self.catalog.search(term, limit)
+
+    def build_output_paths(
+        self,
+        root: str | Path,
+        reference_date: datetime | None = None,
+        *,
+        oven: str | None = None,
+        lang: str = "PT",
+    ) -> OutputPaths:
+        return build_output_paths(root, reference_date, oven=oven, lang=lang)
+
+    def parts_control_path(
+        self,
+        root: str | Path,
+        process: ProcessRecord,
+        reference_date: datetime | None = None,
+        *,
+        lang: str = "PT",
+        prefix: str = "Controle_Pecas",
+    ) -> Path:
+        return parts_control_path(
+            root,
+            process.report_number,
+            reference_date or process.started_at,
+            oven=process.oven,
+            lang=lang,
+            prefix=prefix,
+        )
+
+    def report_summary(self, process: ProcessRecord) -> dict[str, object]:
+        summary = report_summary(process.items)
+        return {
+            **summary,
+            "report_number": process.report_number,
+            "project": process.project,
+            "oven": process.oven,
+            "expected_exit_at": process.expected_exit_at,
+        }

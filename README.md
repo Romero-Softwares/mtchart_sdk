@@ -1,6 +1,6 @@
 # MTChart SDK
 
-SDK inicial para desenvolvedores criarem sistemas semelhantes ao MTChart Pro usando classes e metodos reutilizaveis.
+SDK para desenvolvedores criarem sistemas semelhantes ao MTChart Pro usando classes e metodos reutilizaveis.
 
 Esta primeira versao fica separada do aplicativo desktop e entrega um nucleo limpo para:
 
@@ -8,7 +8,9 @@ Esta primeira versao fica separada do aplicativo desktop e entrega um nucleo lim
 - validar leituras de temperatura;
 - calcular previsao de saida;
 - registrar catalogo de pecas e PN em backend escolhido pelo desenvolvedor;
-- montar dados de rastreabilidade sem depender da interface Flet.
+- montar dados de rastreabilidade sem depender da interface Flet;
+- calcular pastas de saida por ano/mes, forno e tipo de arquivo;
+- padronizar nomes de logs, controle de entradas e numeros de relatorio.
 
 ## Instalacao
 
@@ -51,6 +53,8 @@ print(reading.can_start_process)
 
 - `mtchart_sdk.models`: modelos de dados do processo.
 - `mtchart_sdk.rules`: regras puras de temperatura e tempo.
+- `mtchart_sdk.reports`: utilitarios de relatorio, log, lote, data e rastreabilidade.
+- `mtchart_sdk.output_paths`: organizacao de pastas de saida igual ao MTChart Pro.
 - `mtchart_sdk.storage`: contrato de catalogo e backend SQLite padrao.
 - `mtchart_sdk.service`: fachada principal para uso por outros sistemas.
 - `mtchart_sdk.cli`: demonstracao de linha de comando para validar instalacao.
@@ -61,7 +65,12 @@ print(reading.can_start_process)
 - `MTChartService.create_process(data)`: normaliza pecas, calcula quantidade total e previsao de saida.
 - `MTChartService.evaluate_reading(process, value)`: classifica leitura como `OK`, `LOW`, `HIGH` ou `N/A`.
 - `MTChartService.search_parts(term)`: consulta o catalogo local de pecas por nome ou PN.
+- `MTChartService.build_output_paths(root, reference_date, oven=...)`: calcula LOGS, controle, PDFs e graficos por periodo.
+- `MTChartService.parts_control_path(root, process)`: monta o caminho do controle de pecas usando o numero do relatorio.
+- `MTChartService.report_summary(process)`: resume itens, quantidade total e dados principais do relatorio.
 - `clean_identifier(value)`: remove prefixos comuns como `PN:`, `P/N:`, `LOTE:` e `BATCH:`.
+- `format_report_number(value)`: troca `/` por `-` para nomes de arquivo estaveis.
+- `temperature_log_filename(identity)`: gera o nome do log Excel por report number, PN e SN.
 
 ## Banco de dados flexivel
 
@@ -127,4 +136,5 @@ exemplo/CLI de demonstracao.
 
 ## Status
 
-Versao inicial. A API esta pronta para instalacao, testes locais e evolucao incremental.
+Versao 0.2.0. A API publica acompanha as atualizacoes recentes de catalogo,
+rastreabilidade, report number, pastas de relatorio e utilitarios de log.
