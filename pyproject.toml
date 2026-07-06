@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "mtchart-sdk"
 version = "0.2.0"
-description = "SDK para criar sistemas de monitoramento termico, rastreabilidade e relatorios derivados do MTChart Pro."
+description = "SDK for building thermal monitoring, traceability, and reporting systems derived from MTChart Pro."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "LicenseRef-Proprietary"
@@ -14,10 +14,10 @@ authors = [
     { name = "MTD Softwares" }
 ]
 keywords = [
-    "monitoramento",
-    "processo-termico",
-    "rastreabilidade",
-    "aviacao",
+    "monitoring",
+    "thermal-process",
+    "traceability",
+    "aviation",
     "industrial",
 ]
 classifiers = [

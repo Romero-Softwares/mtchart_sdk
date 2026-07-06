@@ -1,24 +1,24 @@
 # MTChart SDK
 
-SDK para desenvolvedores criarem sistemas semelhantes ao MTChart Pro usando classes e metodos reutilizaveis.
+SDK for developers who want to build systems similar to MTChart Pro using reusable classes and methods.
 
-Esta primeira versao fica separada do aplicativo desktop e entrega um nucleo limpo para:
+This first version is separate from the desktop application and provides a clean core to:
 
-- cadastrar processos termicos;
-- validar leituras de temperatura;
-- calcular previsao de saida;
-- registrar catalogo de pecas e PN em backend escolhido pelo desenvolvedor;
-- montar dados de rastreabilidade sem depender da interface Flet;
-- calcular pastas de saida por ano/mes, forno e tipo de arquivo;
-- padronizar nomes de logs, controle de entradas e numeros de relatorio.
+- register thermal processes;
+- validate temperature readings;
+- calculate expected exit time;
+- register a parts and PN catalog in the backend chosen by the developer;
+- build traceability data without depending on the desktop interface;
+- calculate output folders by year/month, oven, and file type;
+- standardize log names, entry control files, and report numbers.
 
-## Instalacao
+## Installation
 
 ```powershell
 python -m pip install mtchart-sdk
 ```
 
-## Exemplo rapido
+## Quick Example
 
 ```python
 from datetime import datetime
@@ -31,12 +31,12 @@ process = service.create_process(
     ProcessInput(
         report_number="CH-0001",
         project="OS-123",
-        process_name="Alivio de fragilizacao",
-        oven="Forno 01",
+        process_name="Embrittlement relief",
+        oven="Oven 01",
         relief_hours=3,
-        pen=PenConfig(id="1", name="Pena 1", stabilization_target=189, low_limit=175.9),
+        pen=PenConfig(id="1", name="Pen 1", stabilization_target=189, low_limit=175.9),
         items=[
-            PartItem(name="Suporte", pn="PN-001", sn="SN-001", qty=1),
+            PartItem(name="Bracket", pn="PN-001", sn="SN-001", qty=1),
         ],
         started_at=datetime(2026, 6, 28, 8, 0, 0),
     )
@@ -49,92 +49,86 @@ print(reading.status)
 print(reading.can_start_process)
 ```
 
-## Estrutura
+## Structure
 
-- `mtchart_sdk.models`: modelos de dados do processo.
-- `mtchart_sdk.rules`: regras puras de temperatura e tempo.
-- `mtchart_sdk.reports`: utilitarios de relatorio, log, lote, data e rastreabilidade.
-- `mtchart_sdk.output_paths`: organizacao de pastas de saida igual ao MTChart Pro.
-- `mtchart_sdk.storage`: contrato de catalogo e backend SQLite padrao.
-- `mtchart_sdk.service`: fachada principal para uso por outros sistemas.
-- `mtchart_sdk.cli`: demonstracao de linha de comando para validar instalacao.
-- `examples/basic_process.py`: exemplo minimo executavel.
+- `mtchart_sdk.models`: process data models.
+- `mtchart_sdk.rules`: pure temperature and time rules.
+- `mtchart_sdk.reports`: report, log, batch, date, and traceability utilities.
+- `mtchart_sdk.output_paths`: output folder organization matching MTChart Pro.
+- `mtchart_sdk.storage`: catalog contract and default SQLite backend.
+- `mtchart_sdk.service`: main facade for use by other systems.
+- `mtchart_sdk.cli`: command-line demo to validate installation.
+- `examples/basic_process.py`: minimal executable example.
 
-## API principal
+## Main API
 
-- `MTChartService.create_process(data)`: normaliza pecas, calcula quantidade total e previsao de saida.
-- `MTChartService.evaluate_reading(process, value)`: classifica leitura como `OK`, `LOW`, `HIGH` ou `N/A`.
-- `MTChartService.search_parts(term)`: consulta o catalogo local de pecas por nome ou PN.
-- `MTChartService.build_output_paths(root, reference_date, oven=...)`: calcula LOGS, controle, PDFs e graficos por periodo.
-- `MTChartService.parts_control_path(root, process)`: monta o caminho do controle de pecas usando o numero do relatorio.
-- `MTChartService.report_summary(process)`: resume itens, quantidade total e dados principais do relatorio.
-- `clean_identifier(value)`: remove prefixos comuns como `PN:`, `P/N:`, `LOTE:` e `BATCH:`.
-- `format_report_number(value)`: troca `/` por `-` para nomes de arquivo estaveis.
-- `temperature_log_filename(identity)`: gera o nome do log Excel por report number, PN e SN.
+- `MTChartService.create_process(data)`: normalizes parts, calculates total quantity, and expected exit time.
+- `MTChartService.evaluate_reading(process, value)`: classifies the reading as `OK`, `LOW`, `HIGH`, or `N/A`.
+- `MTChartService.search_parts(term)`: searches the local parts catalog by name or PN.
+- `MTChartService.build_output_paths(root, reference_date, oven=...)`: calculates LOGS, control, PDF, and chart folders by period.
+- `MTChartService.parts_control_path(root, process)`: builds the parts control path using the report number.
+- `MTChartService.report_summary(process)`: summarizes items, total quantity, and main report data.
+- `clean_identifier(value)`: removes common prefixes such as `PN:`, `P/N:`, `LOTE:`, and `BATCH:`.
+- `format_report_number(value)`: replaces `/` with `-` for stable file names.
+- `temperature_log_filename(identity)`: generates the Excel log name using report number, PN, and SN.
 
-## Banco de dados flexivel
+## Flexible Database
 
-O SDK usa SQLite por padrao para facilitar o primeiro uso:
+The SDK uses SQLite by default to make the first use simple:
 
 ```python
 from mtchart_sdk import MTChartService
 
-service = MTChartService(catalog_db="catalogo.db")
+service = MTChartService(catalog_db="catalog.db")
 ```
 
-Para usar PostgreSQL, MySQL, SQL Server, MongoDB, uma API interna ou qualquer
-outro armazenamento, injete um backend proprio com os metodos `save()` e
-`search()`:
+To use PostgreSQL, MySQL, SQL Server, MongoDB, an internal API, or any other storage layer, inject your own backend with `save()` and `search()` methods:
 
 ```python
 from mtchart_sdk import MTChartService
 
 
-class MeuCatalogo:
+class MyCatalog:
     def save(self, name: str, pn: str, increment: bool = True) -> None:
-        # Grave em qualquer banco, ORM ou servico externo.
+        # Store in any database, ORM, or external service.
         ...
 
     def search(self, term: str = "", limit: int = 100) -> list[dict[str, object]]:
-        # Retorne dicts com, no minimo, name e pn.
+        # Return dictionaries with at least name and pn.
         return []
 
 
-service = MTChartService(catalog=MeuCatalogo())
+service = MTChartService(catalog=MyCatalog())
 ```
 
-Esse contrato deixa as regras do MTChart independentes do banco. SQLite continua
-disponivel como backend padrao, mas nao e uma obrigacao para quem integra o SDK.
+This contract keeps MTChart rules independent from the database. SQLite remains available as the default backend, but it is not mandatory for SDK integrations.
 
-## CLI de demonstracao
+## Demo CLI
 
-Depois de instalar localmente, rode:
+After installing locally, run:
 
 ```powershell
 mtchart-sdk-demo --value 188.7
 ```
 
-Ou sem instalar como script:
+Or run it as a script without installing:
 
 ```powershell
 python -m mtchart_sdk.cli --catalog-db .tmp_demo.db --value 188.7
 ```
 
-O comando cria um processo ficticio, avalia a leitura e retorna um JSON com
-status, previsao de saida e resultados do catalogo local.
+The command creates a sample process, evaluates the reading, and returns JSON with status, expected exit time, and local catalog results.
 
-## Validacao local
+## Local Validation
 
-Para validar uma copia local do SDK durante desenvolvimento:
+To validate a local SDK copy during development:
 
 ```powershell
 python tools/validate_package.py
 ```
 
-O validador confere metadados, compila os modulos, roda testes e executa o
-exemplo/CLI de demonstracao.
+The validator checks metadata, compiles modules, runs tests, and executes the demo example/CLI.
 
 ## Status
 
-Versao 0.2.0. A API publica acompanha as atualizacoes recentes de catalogo,
-rastreabilidade, report number, pastas de relatorio e utilitarios de log.
+Version 0.2.0. The public API follows the latest catalog, traceability, report number, report folder, and log utility updates.

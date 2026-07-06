@@ -12,23 +12,23 @@ from mtchart_sdk.service import MTChartService
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="mtchart-sdk-demo",
-        description="Executa uma demonstracao local do MTChart SDK.",
+        description="Runs a local MTChart SDK demo.",
     )
-    parser.add_argument("--catalog-db", default="mtchart_sdk_demo.db", help="Caminho do catalogo SQLite.")
-    parser.add_argument("--report-number", default="CH-DEMO-001", help="Numero do relatorio.")
-    parser.add_argument("--project", default="OS-DEMO", help="Projeto ou ordem de servico.")
-    parser.add_argument("--process-name", default="Alivio de fragilizacao", help="Nome do processo.")
-    parser.add_argument("--oven", default="Forno Demo", help="Nome do forno.")
-    parser.add_argument("--relief-hours", type=float, default=3.0, help="Horas de permanencia do processo.")
-    parser.add_argument("--pen-id", default="1", help="Identificador da pena.")
-    parser.add_argument("--target", type=float, default=189.0, help="Temperatura alvo para iniciar processo.")
-    parser.add_argument("--low-limit", type=float, default=175.9, help="Limite inferior de temperatura.")
-    parser.add_argument("--high-limit", type=float, default=220.0, help="Limite superior de temperatura.")
-    parser.add_argument("--value", default="188.7", help="Leitura de temperatura a avaliar.")
-    parser.add_argument("--part-name", default="Suporte Demo", help="Nome da peca.")
-    parser.add_argument("--pn", default="PN-DEMO-001", help="Part number da peca.")
-    parser.add_argument("--sn", default="SN-DEMO-001", help="Serial number da peca.")
-    parser.add_argument("--qty", type=int, default=1, help="Quantidade da peca.")
+    parser.add_argument("--catalog-db", default="mtchart_sdk_demo.db", help="Path to the SQLite catalog.")
+    parser.add_argument("--report-number", default="CH-DEMO-001", help="Report number.")
+    parser.add_argument("--project", default="OS-DEMO", help="Project or work order.")
+    parser.add_argument("--process-name", default="Embrittlement relief", help="Process name.")
+    parser.add_argument("--oven", default="Demo Oven", help="Oven name.")
+    parser.add_argument("--relief-hours", type=float, default=3.0, help="Process dwell time in hours.")
+    parser.add_argument("--pen-id", default="1", help="Pen identifier.")
+    parser.add_argument("--target", type=float, default=189.0, help="Target temperature to start the process.")
+    parser.add_argument("--low-limit", type=float, default=175.9, help="Lower temperature limit.")
+    parser.add_argument("--high-limit", type=float, default=220.0, help="Upper temperature limit.")
+    parser.add_argument("--value", default="188.7", help="Temperature reading to evaluate.")
+    parser.add_argument("--part-name", default="Demo Bracket", help="Part name.")
+    parser.add_argument("--pn", default="PN-DEMO-001", help="Part number.")
+    parser.add_argument("--sn", default="SN-DEMO-001", help="Serial number.")
+    parser.add_argument("--qty", type=int, default=1, help="Part quantity.")
     return parser
 
 
@@ -44,7 +44,7 @@ def run_demo(args: argparse.Namespace) -> dict[str, object]:
             relief_hours=args.relief_hours,
             pen=PenConfig(
                 id=args.pen_id,
-                name=f"Pena {args.pen_id}",
+                name=f"Pen {args.pen_id}",
                 stabilization_target=args.target,
                 low_limit=args.low_limit,
                 high_limit=args.high_limit,
