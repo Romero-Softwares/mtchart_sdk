@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 import re
+import zipfile
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Iterable
+from xml.sax.saxutils import escape
 
 from mtchart_sdk.models import PartItem
 from mtchart_sdk.output_paths import build_output_paths, sanitize_path_part
@@ -153,19 +155,19 @@ def export_audit_operations(
     filters: dict[str, object] | None = None,
     generated_at: datetime | None = None,
 ) -> Path:
-    try:
-        from openpyxl import Workbook
-        from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
-        from openpyxl.utils import get_column_letter
-        from openpyxl.worksheet.page import PageMargins
-    except ImportError as exc:
-        raise RuntimeError("Install mtchart-sdk[reports] to export audit operations to Excel.") from exc
-
     labels = labels or {}
     filters = filters or {}
     rows = list(logs or [])
     output = Path(output_path)
     output.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+        from openpyxl.utils import get_column_letter
+        from openpyxl.worksheet.page import PageMargins
+    except ImportError:
+        return _export_audit_operations_basic_xlsx(rows, output, labels, filters, generated_at)
 
     wb = Workbook()
     ws = wb.active
@@ -232,6 +234,101 @@ def export_audit_operations(
     ws.page_margins = PageMargins(left=0.25, right=0.25, top=0.35, bottom=0.35, header=0.15, footer=0.15)
     wb.save(output)
     return output
+
+
+def _export_audit_operations_basic_xlsx(
+    rows: list[dict[str, object]],
+    output: Path,
+    labels: dict[str, str],
+    filters: dict[str, object],
+    generated_at: datetime | None,
+) -> Path:
+    table: list[list[object]] = [
+        [labels.get("audit_logs_title", "Operation logs")],
+        [labels.get("audit_export_generated_at", "Generated at"), format_datetime_display(generated_at or datetime.now())],
+    ]
+    if filters.get("data_inicio") or filters.get("start"):
+        table.append([labels.get("audit_filter_start", "Start date/time"), filters.get("data_inicio") or filters.get("start")])
+    if filters.get("data_fim") or filters.get("end"):
+        table.append([labels.get("audit_filter_end", "End date/time"), filters.get("data_fim") or filters.get("end")])
+    table.extend([
+        [labels.get("audit_export_total", "Total records"), len(rows)],
+        [],
+        [
+            labels.get("audit_col_datetime", "Date/time"),
+            labels.get("audit_col_operator", "Operator ID"),
+            labels.get("audit_col_tab", "Tab"),
+            labels.get("audit_col_action", "Action"),
+            labels.get("audit_col_details", "Details"),
+        ],
+    ])
+    for log in format_audit_logs_for_display(rows, labels):
+        table.append([
+            log.get("data_hora", ""),
+            log.get("matricula", ""),
+            log.get("aba", ""),
+            log.get("acao", ""),
+            log.get("detalhes", ""),
+        ])
+
+    sheet_rows = []
+    for row_number, row in enumerate(table, start=1):
+        cells = []
+        for column_number, value in enumerate(row, start=1):
+            cell_ref = f"{_xlsx_column_name(column_number)}{row_number}"
+            text = escape(str(value if value is not None else ""))
+            cells.append(f'<c r="{cell_ref}" t="inlineStr"><is><t>{text}</t></is></c>')
+        sheet_rows.append(f'<row r="{row_number}">{"".join(cells)}</row>')
+
+    worksheet = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+        f'<sheetData>{"".join(sheet_rows)}</sheetData>'
+        '</worksheet>'
+    )
+    with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr(
+            "[Content_Types].xml",
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+            '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+            '<Default Extension="xml" ContentType="application/xml"/>'
+            '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+            '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+            '</Types>',
+        )
+        archive.writestr(
+            "_rels/.rels",
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+            '</Relationships>',
+        )
+        archive.writestr(
+            "xl/workbook.xml",
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+            'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+            f'<sheets><sheet name="{escape(labels.get("audit_logs_title", "Operation logs")[:31])}" sheetId="1" r:id="rId1"/></sheets>'
+            '</workbook>',
+        )
+        archive.writestr(
+            "xl/_rels/workbook.xml.rels",
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+            '</Relationships>',
+        )
+        archive.writestr("xl/worksheets/sheet1.xml", worksheet)
+    return output
+
+
+def _xlsx_column_name(index: int) -> str:
+    name = ""
+    while index:
+        index, remainder = divmod(index - 1, 26)
+        name = chr(65 + remainder) + name
+    return name
 
 
 def temperature_status(value: object, low_limit: object, high_limit: object) -> tuple[str, bool]:
