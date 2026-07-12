@@ -1,7 +1,10 @@
 from datetime import datetime
+import struct
 
 from mtchart_sdk import (
     AuditOperation,
+    DriverDependencyError,
+    DriverManager,
     MTChartService,
     PartItem,
     PenConfig,
@@ -21,6 +24,47 @@ from mtchart_sdk import (
     temperature_status,
 )
 from mtchart_sdk.cli import main, run_demo
+
+
+class FakeTcpClient:
+    def __init__(self, *, registers=None, open_result=True, **kwargs):
+        self.kwargs = kwargs
+        self.registers = registers or [0]
+        self.open_result = open_result
+        self.closed = False
+        self.writes = []
+
+    def open(self):
+        return self.open_result
+
+    def close(self):
+        self.closed = True
+
+    def read_holding_registers(self, address, count):
+        return self.registers[address : address + count]
+
+    def write_single_register(self, address, value):
+        self.writes.append(("single", address, value))
+        return True
+
+    def write_multiple_registers(self, address, values):
+        self.writes.append(("multiple", address, values))
+        return True
+
+
+class MemoryConfig(dict):
+    def get_val(self, *keys):
+        value = self
+        for key in keys:
+            value = value.get(key)
+            if value is None:
+                return None
+        return value
+
+    def set_pena_valor(self, pen_id, key, value):
+        for pen in self["penas"]:
+            if str(pen["id"]) == str(pen_id):
+                pen[key] = value
 
 
 class MemoryCatalog:
@@ -295,3 +339,92 @@ def test_audit_log_formatting_and_export_match_system_updates(tmp_path):
     assert formatted["acao"] == "Registered entry"
     assert formatted["detalhes"] == "Project: OS-1; Immediate start: NO"
     assert output.exists()
+
+
+def test_driver_manager_connects_to_tcp_with_injected_client():
+    created = []
+
+    def factory(**kwargs):
+        client = FakeTcpClient(registers=[188], **kwargs)
+        created.append(client)
+        return client
+
+    driver = DriverManager(
+        {
+            "hardware": {"metodo_conexao": "TCP", "ip_fieldlogger": "10.0.0.5", "modbus_port": 1502},
+            "penas": [],
+        },
+        tcp_client_factory=factory,
+    )
+
+    assert driver.conectar() is True
+    assert driver.conectado is True
+    assert created[0].kwargs["host"] == "10.0.0.5"
+    assert created[0].kwargs["port"] == 1502
+    assert driver.ler_registrador_unico(slave_id=1, endereco=0) == 188
+
+
+def test_driver_manager_reads_int16_and_float32_values():
+    raw_float = list(struct.unpack(">HH", struct.pack(">f", 188.75)))
+    driver = DriverManager(
+        {"hardware": {"metodo_conexao": "TCP"}, "penas": []},
+        tcp_client_factory=lambda **kwargs: FakeTcpClient(registers=[65535, *raw_float], **kwargs),
+    )
+
+    assert driver.conectar() is True
+    assert driver.ler_valor_universal(1, 0, "int16", 0.5) == -0.5
+    assert round(driver.ler_valor_universal(1, 1, "float32", 1), 2) == 188.75
+
+
+def test_driver_manager_captures_configured_pens_and_marks_compensation():
+    config = MemoryConfig(
+        {
+            "hardware": {"metodo_conexao": "TCP"},
+            "penas": [
+                {
+                    "id": "1",
+                    "ativa": True,
+                    "estabilizado": True,
+                    "slave_id": 1,
+                    "endereco_modbus": 0,
+                    "tipo_dado": "int16",
+                    "escala": 1,
+                    "limite_queda_compensacao": 190,
+                }
+            ],
+        }
+    )
+    callbacks = []
+    driver = DriverManager(
+        config,
+        tcp_client_factory=lambda **kwargs: FakeTcpClient(registers=[188], **kwargs),
+    )
+    driver.callback_compensacao = callbacks.append
+
+    readings, ok = driver.capturar_todas_penas()
+
+    assert ok is True
+    assert readings == {"1": 188}
+    assert config["penas"][0]["compensacao_aplicada"] is True
+    assert callbacks == ["1"]
+
+
+def test_driver_manager_raises_clear_error_without_hardware_extra(monkeypatch):
+    import builtins
+
+    real_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):
+        if name == "pyModbusTCP.client":
+            raise ImportError(name)
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+    driver = DriverManager({"hardware": {"metodo_conexao": "TCP"}, "penas": []})
+
+    try:
+        driver.conectar()
+    except DriverDependencyError as exc:
+        assert "mtchart-sdk[hardware]" in str(exc)
+    else:
+        raise AssertionError("Expected DriverDependencyError without optional hardware dependency")

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mtchart-sdk"
-version = "0.3.0"
+version = "0.4.0"
 description = "SDK for building thermal monitoring, traceability, and reporting systems derived from MTChart Pro."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -37,6 +37,7 @@ Documentation = "https://github.com/Romero-Softwares/mtchart_sdk#readme"
 Issues = "https://github.com/Romero-Softwares/mtchart_sdk/issues"
 
 [project.optional-dependencies]
+hardware = ["pymodbus>=3.6", "pyModbusTCP>=0.3"]
 reports = ["openpyxl>=3.1"]
 dev = ["pytest>=8"]
 

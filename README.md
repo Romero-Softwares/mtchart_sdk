@@ -13,11 +13,18 @@ This first version is separate from the desktop application and provides a clean
 - standardize log names, entry control files, and report numbers.
 - record auditable operation logs compatible with MTChart Pro V9;
 - format and export audit logs to Excel for validation packages.
+- connect to MTChart-compatible Modbus hardware through an optional driver manager.
 
 ## Installation
 
 ```powershell
 python -m pip install mtchart-sdk
+```
+
+For hardware communication, install the optional Modbus dependencies:
+
+```powershell
+python -m pip install "mtchart-sdk[hardware]"
 ```
 
 ## Quick Example
@@ -58,6 +65,7 @@ print(reading.can_start_process)
 - `mtchart_sdk.reports`: report, log, batch, audit, date, and traceability utilities.
 - `mtchart_sdk.output_paths`: output folder organization matching MTChart Pro.
 - `mtchart_sdk.storage`: catalog contract and default SQLite backend.
+- `mtchart_sdk.driver_manager`: optional Modbus serial/TCP driver manager.
 - `mtchart_sdk.service`: main facade for use by other systems.
 - `mtchart_sdk.cli`: command-line demo to validate installation.
 - `examples/basic_process.py`: minimal executable example.
@@ -76,6 +84,30 @@ print(reading.can_start_process)
 - `format_report_number(value)`: replaces `/` with `-` for stable file names.
 - `temperature_log_filename(identity)`: generates the Excel log name using report number, PN, and SN.
 - `export_audit_operations(logs, output_path)`: creates an Excel workbook with auditable operation logs.
+- `DriverManager(config)`: connects to serial/TCP Modbus hardware and reads configured pens.
+
+## Hardware Driver
+
+`DriverManager` reads the same hardware and pen structure used by MTChart Pro. The configuration object can be a dictionary or an object exposing `get_val()` and, optionally, `set_pena_valor()`.
+
+```python
+from mtchart_sdk import DriverManager
+
+config = {
+    "hardware": {
+        "metodo_conexao": "TCP",
+        "ip_fieldlogger": "192.168.0.100",
+        "modbus_port": 502,
+    },
+    "penas": [
+        {"id": "1", "ativa": True, "slave_id": 1, "endereco_modbus": 0, "tipo_dado": "int16", "escala": 1},
+    ],
+}
+
+driver = DriverManager(config)
+if driver.conectar():
+    readings, ok = driver.capturar_todas_penas()
+```
 
 ## Audit Logs
 
@@ -156,4 +188,4 @@ The validator checks metadata, compiles modules, runs tests, and executes the de
 
 ## Status
 
-Version 0.3.0. The public API follows the latest catalog, traceability, report number, report folder, operation audit, and log export updates.
+Version 0.4.0. The public API follows the latest catalog, traceability, report number, report folder, operation audit, log export, and optional hardware driver updates.

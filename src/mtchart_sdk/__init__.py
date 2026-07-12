@@ -41,6 +41,7 @@ from mtchart_sdk.reports import (
     temperature_log_filename,
     temperature_status,
 )
+from mtchart_sdk.driver_manager import DriverDependencyError, DriverManager
 from mtchart_sdk.service import MTChartService
 from mtchart_sdk.storage import AuditLogStorage, AuditOperationStorage, PartsCatalog, PartsCatalogStorage, SQLitePartsCatalog
 
@@ -48,6 +49,8 @@ __all__ = [
     "AuditLogStorage",
     "AuditOperation",
     "AuditOperationStorage",
+    "DriverDependencyError",
+    "DriverManager",
     "MTChartService",
     "OutputFolderNames",
     "OutputPaths",
