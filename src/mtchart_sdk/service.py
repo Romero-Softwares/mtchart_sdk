@@ -3,11 +3,11 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
-from mtchart_sdk.models import PartItem, ProcessInput, ProcessRecord, ReadingEvaluation
+from mtchart_sdk.models import AuditOperation, PartItem, ProcessInput, ProcessRecord, ReadingEvaluation
 from mtchart_sdk.output_paths import OutputPaths, build_output_paths
 from mtchart_sdk.reports import parts_control_path, report_summary
 from mtchart_sdk.rules import calculate_exit_timing, evaluate_temperature, normalize_item, total_quantity
-from mtchart_sdk.storage import PartsCatalogStorage, SQLitePartsCatalog
+from mtchart_sdk.storage import AuditOperationStorage, PartsCatalogStorage, SQLitePartsCatalog
 
 
 class MTChartService:
@@ -15,10 +15,14 @@ class MTChartService:
         self,
         catalog_db: str | Path | None = None,
         catalog: PartsCatalogStorage | None = None,
+        audit_storage: AuditOperationStorage | None = None,
     ) -> None:
         if catalog is not None and catalog_db is not None:
             raise ValueError("Use catalog or catalog_db, not both")
         self.catalog = catalog or SQLitePartsCatalog(catalog_db or "mtchart_sdk.db")
+        self.audit_storage = audit_storage or (
+            self.catalog if isinstance(self.catalog, SQLitePartsCatalog) else None
+        )
 
     def create_process(self, data: ProcessInput) -> ProcessRecord:
         started_at = data.started_at or datetime.now()
@@ -57,6 +61,42 @@ class MTChartService:
 
     def search_parts(self, term: str = "", limit: int = 100) -> list[dict[str, object]]:
         return self.catalog.search(term, limit)
+
+    def record_audit_operation(
+        self,
+        operator_id: str,
+        action: str,
+        tab: str = "",
+        details: str = "",
+        occurred_at: datetime | str | None = None,
+    ) -> int | None:
+        if self.audit_storage is None:
+            raise RuntimeError("No audit storage backend configured")
+        return self.audit_storage.record_audit_operation(operator_id, action, tab, details, occurred_at)
+
+    def save_audit_operation(self, operation: AuditOperation) -> int | None:
+        return self.record_audit_operation(
+            operation.operator_id,
+            operation.action,
+            operation.tab,
+            operation.details,
+            operation.occurred_at,
+        )
+
+    def list_audit_operations(
+        self,
+        limit: int = 1000,
+        start: datetime | str | None = None,
+        end: datetime | str | None = None,
+    ) -> list[dict[str, object]]:
+        if self.audit_storage is None:
+            raise RuntimeError("No audit storage backend configured")
+        return self.audit_storage.list_audit_operations(limit, start, end)
+
+    def has_audit_operations(self) -> bool:
+        if self.audit_storage is None:
+            raise RuntimeError("No audit storage backend configured")
+        return self.audit_storage.has_audit_operations()
 
     def build_output_paths(
         self,

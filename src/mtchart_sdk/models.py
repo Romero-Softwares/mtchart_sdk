@@ -6,6 +6,16 @@ from typing import Any
 
 
 @dataclass(frozen=True)
+class AuditOperation:
+    operator_id: str
+    action: str
+    tab: str = ""
+    details: str = ""
+    occurred_at: datetime | str | None = None
+    id: int | None = None
+
+
+@dataclass(frozen=True)
 class PartItem:
     name: str = ""
     pn: str = ""

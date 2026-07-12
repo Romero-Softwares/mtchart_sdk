@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -72,6 +73,165 @@ def format_datetime_display(value: datetime | str | None, lang: str = "PT") -> s
             return text
     date_format = "%Y/%m/%d %H:%M:%S" if str(lang).upper() == "EN" else "%d/%m/%Y %H:%M:%S"
     return date_value.strftime(date_format)
+
+
+def format_audit_action(value: object, labels: dict[str, str] | None = None) -> str:
+    labels = labels or {}
+    action = str(value or "").strip()
+    if not action:
+        return ""
+    return labels.get(f"audit_action_{action.lower()}", action)
+
+
+def format_audit_tab(value: object, labels: dict[str, str] | None = None) -> str:
+    labels = labels or {}
+    tab = str(value or "").strip()
+    if not tab:
+        return ""
+    normalized = re.sub(r"[^a-z0-9]+", "_", tab.lower()).strip("_")
+    return labels.get(f"audit_tab_{normalized}", tab)
+
+
+def _format_audit_detail_value(value: object, labels: dict[str, str]) -> str:
+    raw = str(value or "").strip()
+    lower = raw.lower()
+    if lower == "true":
+        return labels.get("txt_sim", "SIM")
+    if lower == "false":
+        return labels.get("txt_nao", "NAO")
+    return raw
+
+
+def format_audit_details(value: object, labels: dict[str, str] | None = None) -> str:
+    labels = labels or {}
+    details = str(value or "").strip()
+    if not details:
+        return ""
+    phrase_key = f"audit_detail_phrase_{details.lower().replace(' ', '_').replace('.', '')}"
+    if phrase_key in labels:
+        return labels[phrase_key]
+    if "->" in details and ";" not in details and "=" not in details:
+        left, right = details.split("->", 1)
+        return f"{format_audit_tab(left, labels)} {labels.get('audit_detail_to', '->')} {format_audit_tab(right, labels)}"
+
+    parts = []
+    parsed_any = False
+    for raw_part in details.split(";"):
+        part = raw_part.strip()
+        if not part:
+            continue
+        if "=" not in part:
+            parts.append(part)
+            continue
+        parsed_any = True
+        key, raw_val = part.split("=", 1)
+        key = key.strip()
+        label = labels.get(f"audit_detail_{key.lower()}", key.replace("_", " ").title())
+        parts.append(f"{label}: {_format_audit_detail_value(raw_val, labels)}")
+    return "; ".join(parts) if parsed_any else details
+
+
+def format_audit_log_for_display(log: dict[str, object], labels: dict[str, str] | None = None) -> dict[str, object]:
+    display = dict(log or {})
+    display["aba"] = format_audit_tab(display.get("aba", ""), labels)
+    display["acao"] = format_audit_action(display.get("acao", ""), labels)
+    display["detalhes"] = format_audit_details(display.get("detalhes", ""), labels)
+    return display
+
+
+def format_audit_logs_for_display(
+    logs: Iterable[dict[str, object]],
+    labels: dict[str, str] | None = None,
+) -> list[dict[str, object]]:
+    return [format_audit_log_for_display(log, labels) for log in (logs or [])]
+
+
+def export_audit_operations(
+    logs: Iterable[dict[str, object]],
+    output_path: str | Path,
+    labels: dict[str, str] | None = None,
+    filters: dict[str, object] | None = None,
+    generated_at: datetime | None = None,
+) -> Path:
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+        from openpyxl.utils import get_column_letter
+        from openpyxl.worksheet.page import PageMargins
+    except ImportError as exc:
+        raise RuntimeError("Install mtchart-sdk[reports] to export audit operations to Excel.") from exc
+
+    labels = labels or {}
+    filters = filters or {}
+    rows = list(logs or [])
+    output = Path(output_path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = labels.get("audit_logs_title", "Operation logs")[:31]
+    header_fill = PatternFill(start_color="1F538D", end_color="1F538D", fill_type="solid")
+    header_font = Font(color="FFFFFF", bold=True)
+    border = Border(
+        left=Side(style="thin"),
+        right=Side(style="thin"),
+        top=Side(style="thin"),
+        bottom=Side(style="thin"),
+    )
+    center = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+    ws.append([labels.get("audit_logs_title", "Operation logs")])
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=5)
+    ws["A1"].fill = header_fill
+    ws["A1"].font = Font(color="FFFFFF", bold=True, size=14)
+    ws["A1"].alignment = center
+    ws.append([labels.get("audit_export_generated_at", "Generated at"), format_datetime_display(generated_at or datetime.now())])
+    if filters.get("data_inicio") or filters.get("start"):
+        ws.append([labels.get("audit_filter_start", "Start date/time"), filters.get("data_inicio") or filters.get("start")])
+    if filters.get("data_fim") or filters.get("end"):
+        ws.append([labels.get("audit_filter_end", "End date/time"), filters.get("data_fim") or filters.get("end")])
+    ws.append([labels.get("audit_export_total", "Total records"), len(rows)])
+    ws.append([])
+
+    ws.append([
+        labels.get("audit_col_datetime", "Date/time"),
+        labels.get("audit_col_operator", "Operator ID"),
+        labels.get("audit_col_tab", "Tab"),
+        labels.get("audit_col_action", "Action"),
+        labels.get("audit_col_details", "Details"),
+    ])
+    header_row = ws.max_row
+    for cell in ws[header_row]:
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = center
+        cell.border = border
+
+    for log in format_audit_logs_for_display(rows, labels):
+        ws.append([
+            log.get("data_hora", ""),
+            log.get("matricula", ""),
+            log.get("aba", ""),
+            log.get("acao", ""),
+            log.get("detalhes", ""),
+        ])
+        for cell in ws[ws.max_row]:
+            cell.border = border
+            cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+
+    for idx, width in enumerate([22, 16, 22, 28, 60], start=1):
+        ws.column_dimensions[get_column_letter(idx)].width = width
+    for row_idx in range(2, header_row):
+        ws.cell(row=row_idx, column=1).font = Font(bold=True)
+    ws.freeze_panes = f"A{header_row + 1}"
+    ws.sheet_view.showGridLines = False
+    ws.auto_filter.ref = f"A{header_row}:E{max(header_row, ws.max_row)}"
+    ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
+    ws.page_margins = PageMargins(left=0.25, right=0.25, top=0.35, bottom=0.35, header=0.15, footer=0.15)
+    wb.save(output)
+    return output
 
 
 def temperature_status(value: object, low_limit: object, high_limit: object) -> tuple[str, bool]:

@@ -11,6 +11,8 @@ This first version is separate from the desktop application and provides a clean
 - build traceability data without depending on the desktop interface;
 - calculate output folders by year/month, oven, and file type;
 - standardize log names, entry control files, and report numbers.
+- record auditable operation logs compatible with MTChart Pro V9;
+- format and export audit logs to Excel for validation packages.
 
 ## Installation
 
@@ -53,7 +55,7 @@ print(reading.can_start_process)
 
 - `mtchart_sdk.models`: process data models.
 - `mtchart_sdk.rules`: pure temperature and time rules.
-- `mtchart_sdk.reports`: report, log, batch, date, and traceability utilities.
+- `mtchart_sdk.reports`: report, log, batch, audit, date, and traceability utilities.
 - `mtchart_sdk.output_paths`: output folder organization matching MTChart Pro.
 - `mtchart_sdk.storage`: catalog contract and default SQLite backend.
 - `mtchart_sdk.service`: main facade for use by other systems.
@@ -68,9 +70,32 @@ print(reading.can_start_process)
 - `MTChartService.build_output_paths(root, reference_date, oven=...)`: calculates LOGS, control, PDF, and chart folders by period.
 - `MTChartService.parts_control_path(root, process)`: builds the parts control path using the report number.
 - `MTChartService.report_summary(process)`: summarizes items, total quantity, and main report data.
+- `MTChartService.record_audit_operation(operator_id, action, tab, details)`: persists an operation log.
+- `MTChartService.list_audit_operations(start=..., end=...)`: lists operation logs newest first.
 - `clean_identifier(value)`: removes common prefixes such as `PN:`, `P/N:`, `LOTE:`, and `BATCH:`.
 - `format_report_number(value)`: replaces `/` with `-` for stable file names.
 - `temperature_log_filename(identity)`: generates the Excel log name using report number, PN, and SN.
+- `export_audit_operations(logs, output_path)`: creates an Excel workbook with auditable operation logs.
+
+## Audit Logs
+
+```python
+from datetime import datetime
+
+from mtchart_sdk import MTChartService, export_audit_operations
+
+service = MTChartService(catalog_db="mtchart.db")
+service.record_audit_operation(
+    operator_id="OP-123",
+    action="REGISTROU_ENTRADA",
+    tab="DASHBOARD",
+    details="pn=PN-001; projeto=OS-123; inicio_imediato=True",
+    occurred_at=datetime(2026, 7, 11, 10, 30, 0),
+)
+
+logs = service.list_audit_operations(start="2026-07-11 10:30", end="2026-07-11 10:30")
+export_audit_operations(logs, "operation_logs.xlsx")
+```
 
 ## Flexible Database
 
@@ -131,4 +156,4 @@ The validator checks metadata, compiles modules, runs tests, and executes the de
 
 ## Status
 
-Version 0.2.0. The public API follows the latest catalog, traceability, report number, report folder, and log utility updates.
+Version 0.3.0. The public API follows the latest catalog, traceability, report number, report folder, operation audit, and log export updates.

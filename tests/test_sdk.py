@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from mtchart_sdk import (
+    AuditOperation,
     MTChartService,
     PartItem,
     PenConfig,
@@ -8,6 +9,8 @@ from mtchart_sdk import (
     ReportIdentity,
     build_output_paths,
     clean_identifier,
+    export_audit_operations,
+    format_audit_log_for_display,
     format_datetime_display,
     format_report_number,
     normalize_item,
@@ -229,3 +232,66 @@ def test_service_exposes_report_paths_and_summary(tmp_path):
     assert summary["report_number"] == "CH/011/26"
     assert summary["total_quantity"] == 3
     assert report_summary(process.items)["has_multiple_items"] is True
+
+
+def test_audit_operations_are_recorded_listed_and_filtered(tmp_path):
+    service = MTChartService(catalog_db=tmp_path / "catalog.db")
+
+    assert service.has_audit_operations() is False
+    first_id = service.record_audit_operation(
+        "op-1",
+        "REGISTROU_ENTRADA",
+        "DASHBOARD",
+        "pn=PN-1; inicio_imediato=False",
+        occurred_at="2026-07-11 10:30:00",
+    )
+    service.save_audit_operation(
+        AuditOperation(
+            operator_id="op-2",
+            action="TROCA_ABA",
+            tab="CONFIGURACOES",
+            details="CONFIGURACOES -> HISTORY",
+            occurred_at="2026-07-11 10:31:00",
+        )
+    )
+
+    logs = service.list_audit_operations(start="2026-07-11 10:30", end="2026-07-11 10:30")
+
+    assert first_id == 1
+    assert service.has_audit_operations() is True
+    assert len(logs) == 1
+    assert logs[0]["matricula"] == "OP-1"
+    assert logs[0]["acao"] == "REGISTROU_ENTRADA"
+
+
+def test_audit_log_formatting_and_export_match_system_updates(tmp_path):
+    labels = {
+        "audit_logs_title": "Operation logs",
+        "audit_export_generated_at": "Generated at",
+        "audit_export_total": "Total records",
+        "audit_col_datetime": "Date/time",
+        "audit_col_operator": "Operator ID",
+        "audit_col_tab": "Tab",
+        "audit_col_action": "Action",
+        "audit_col_details": "Details",
+        "audit_action_registrou_entrada": "Registered entry",
+        "audit_tab_dashboard": "Dashboard",
+        "audit_detail_projeto": "Project",
+        "audit_detail_inicio_imediato": "Immediate start",
+        "txt_nao": "NO",
+    }
+    log = {
+        "data_hora": "2026-07-11 10:30:00",
+        "matricula": "OP-1",
+        "aba": "DASHBOARD",
+        "acao": "REGISTROU_ENTRADA",
+        "detalhes": "projeto=OS-1; inicio_imediato=False",
+    }
+
+    formatted = format_audit_log_for_display(log, labels)
+    output = export_audit_operations([log], tmp_path / "operation_logs.xlsx", labels)
+
+    assert formatted["aba"] == "Dashboard"
+    assert formatted["acao"] == "Registered entry"
+    assert formatted["detalhes"] == "Project: OS-1; Immediate start: NO"
+    assert output.exists()

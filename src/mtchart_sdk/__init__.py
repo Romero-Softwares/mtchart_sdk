@@ -1,4 +1,5 @@
 from mtchart_sdk.models import (
+    AuditOperation,
     PartItem,
     PenConfig,
     ProcessInput,
@@ -23,6 +24,12 @@ from mtchart_sdk.output_paths import (
 from mtchart_sdk.reports import (
     ReportIdentity,
     TemperatureLogPoint,
+    export_audit_operations,
+    format_audit_action,
+    format_audit_details,
+    format_audit_log_for_display,
+    format_audit_logs_for_display,
+    format_audit_tab,
     format_datetime_display,
     format_report_number,
     is_batch_identifier,
@@ -35,9 +42,12 @@ from mtchart_sdk.reports import (
     temperature_status,
 )
 from mtchart_sdk.service import MTChartService
-from mtchart_sdk.storage import PartsCatalog, PartsCatalogStorage, SQLitePartsCatalog
+from mtchart_sdk.storage import AuditLogStorage, AuditOperationStorage, PartsCatalog, PartsCatalogStorage, SQLitePartsCatalog
 
 __all__ = [
+    "AuditLogStorage",
+    "AuditOperation",
+    "AuditOperationStorage",
     "MTChartService",
     "OutputFolderNames",
     "OutputPaths",
@@ -55,6 +65,12 @@ __all__ = [
     "calculate_exit_timing",
     "clean_identifier",
     "evaluate_temperature",
+    "export_audit_operations",
+    "format_audit_action",
+    "format_audit_details",
+    "format_audit_log_for_display",
+    "format_audit_logs_for_display",
+    "format_audit_tab",
     "format_datetime_display",
     "format_report_number",
     "is_batch_identifier",
